@@ -1,0 +1,20 @@
+#Create  a violin plot
+library(ggplot2)
+library(dplyr)
+
+#Read the file in .csv
+pl <- read.csv("XyleneN.csv", header = TRUE)
+print(pl)
+pl <- tibble::as_tibble(pl)
+library(reshape2)
+
+pl.long <- melt(pl, id = "Sample", measure = c("GMBurden", "WMBurden"))
+ggplot(pl.long, aes(Sample, value, colour = variable)) + 
+  geom_point(size = 4, shape = 21)+
+  labs(x = 'Sample Type', y = 'ROI Burden', title = 'Xylene vs No Xylene')+
+  geom_smooth(method = "lm",se = FALSE)
+
+#Create a violin plot
+ggplot(pl.long, aes(Sample, value, colour = variable)) + 
+  geom_violin(trim = FALSE, bw = 0.25) + geom_boxplot(width = .1) + geom_jitter(height = 0, width = 0.1) + scale_y_log10()+
+  labs(x = 'Sample Type', y = 'ROI Burden', title = 'Xylene vs No Xylene')
