@@ -1,20 +1,60 @@
-#Create  a violin plot
-library(ggplot2)
-library(dplyr)
+#The following is for the creation of a violin aqp4ot
+#Create  a violin aqp4ot
+#Load the following libraries to run in R
 
-#Read the file in .csv
-pl <- read.csv("XyleneN.csv", header = TRUE)
-print(pl)
-pl <- tibble::as_tibble(pl)
+#To safely load libraries, be sure to install the packages using either "install.packages()" or going through tools at the top menu bar and going to "install packages" - this will pull from CRAN and download the package accordingly. 
+
+# set options
+options(stringsAsFactors = F)         # no automatic data transformation
+options("scipen" = 100, "digits" = 12) # suppress math annotation
+# load packages
+
+library(dplyr)
+library(ggplot2)
+library(Hmisc)
+library(hrbrthemes)
+library(reshape2)
+library(tidyverse)
+library(viridis)
+# activate klippy for copy-to-clipboard button
+klippy::klippy()
+
+#Read the file in .csv - add "AQP4OCCWM.csv" or "AQP4OCCGM.csv"
+#When assigning the information, put in column form for x and y values. groups matched to y value loads, so be sure to fill in the exact information of the group to match the load to ensure that all information is read properly. 
+aqp4 <- read.csv("AQP4OCCGM.csv", header = TRUE)
+print(aqp4)
+aqp4 <- tibble::as_tibble(aqp4)
 library(reshape2)
 
-pl.long <- melt(pl, id = "Sample", measure = c("GMBurden", "WMBurden"))
-ggplot(pl.long, aes(Sample, value, colour = variable)) + 
-  geom_point(size = 4, shape = 21)+
-  labs(x = 'Sample Type', y = 'ROI Burden', title = 'Xylene vs No Xylene')+
-  geom_smooth(method = "lm",se = FALSE)
+#test for missing values. Turning all missing values into 0s. Consider removing NA values? 
+is.na(aqp4)  #returns TRUE of x is missing
+aqp4
 
-#Create a violin plot
-ggplot(pl.long, aes(Sample, value, colour = variable)) + 
-  geom_violin(trim = FALSE, bw = 0.25) + geom_boxplot(width = .1) + geom_jitter(height = 0, width = 0.1) + scale_y_log10()+
-  labs(x = 'Sample Type', y = 'ROI Burden', title = 'Xylene vs No Xylene')
+na.omit(aqp4)
+
+aqp4
+
+#summarize and precompute n
+summary_aqp4 <-aqp4 %>%
+    group_by(Subjects, ROILoads)%>%
+    summarise(n=n())
+
+#Creating a colorblind palette
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+#Create a violin aqp4plot
+ggplot(data = aqp4, aes(y = ROILoads, x = Subjects, color = Subjects))+
+    geom_violin()+
+    geom_jitter()+
+    geom_boxplot(width=0.1, color="grey", alpha =0.2)+
+    scale_fill_viridis(discrete = TRUE)+
+    theme_ipsum()+
+    theme(
+        legend.position="none",
+        plot.title = element_text(size = 11)
+    ) +
+    scale_y_log10()+
+    labs(x = "Subject Group", y = "%Load of AQP4 in OCC Grey Matter")+
+    stat_summary(fun.y=mean, geom = "point", color = "black")+
+    theme_classic()
