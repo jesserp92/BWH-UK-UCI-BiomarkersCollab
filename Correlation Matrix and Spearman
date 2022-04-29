@@ -1,0 +1,422 @@
+#Load the following libraries to run in R
+
+# load packages
+library(dplyr) #used for cleaning dataframes and data manipulation 
+library(tibble) #used for creating a base data frame and also displays data along with data types. 
+library(tidyverse) #used in data sciences for grammar, philosophy, and data structure. Tidies data.
+library(ggplot2) #dedicated to data visualization
+library(ggpubr) #dedicated to data visualization usually used in biological sciences research
+library(corrplot) #used to generate correlation
+library(Hmisc) #used to generate R base correlation and correlation matrices
+library(PerformanceAnalytics) #provides performance metrics and analysis for normally and non-normally distributed data. Can also use on correlation matrices
+
+#Read the file in the following format: "Titleofdocument.csv". From here on, the data will be abbreviated to "PL". 
+PL <- read.csv("PostmortemLoadsvsPlasma.csv", header = TRUE)
+print(PL)
+PL <- tibble::as_tibble(PL)
+library(reshape2)
+
+#Creating a correlation Matrix 
+#[,unlist] step is necessary to make sure the only columns read are the ones with numerics. Any column with alphas or non-numerics will read as an error. 
+#The following selects a subset of all numeric variables in our data using the unlist, lapply, and is.numeric functions as shown below:
+PL.cor = cor(PL[, unlist(lapply(PL, is.numeric))], method = c("spearman"))  # Properly apply cor
+
+#flattenCorrelationMatrix
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+#[,unlist] step is necessary to make sure the only columns read are the ones with numerics. Any column with alphas or non-numerics will read as an error. 
+#The following runs a correlation matrix with p-values. 
+PL.rcorr=rcorr(as.matrix(PL)[, unlist(lapply(PL, is.numeric))])
+PL.rcorr
+flattenCorrMatrix(PL.rcorr$r,PL.rcorr$P)
+
+#Next we are going to generate one table of correlation coefficients and one with p-values. 
+PL.coeff = PL.rcorr$r
+PL.p = PL.rcorr$P
+
+#Create correlation matrix based on the information generated above. 
+corrplot(PL.cor)
+
+#Create a correlogram to better visualize the graphical display
+corrplot(PL.cor, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+#Combine correlogram with significance test
+
+# Insignificant correlation are crossed
+corrplot(PL.coeff, type="upper", order="hclust", 
+         p.mat = PL.p, sig.level = 0.04, insig = "blank")
+# Insignificant correlations are leaved blank
+corrplot(PL.coeff, type="upper", order="hclust", 
+         p.mat = PL.p, sig.level = 0.04, insig = "blank")
+
+#now to display a chart of a correlation matrix
+chart.Correlation(PL, histogram=TRUE, pch=19)
+
+#Begin regression analysis by generating a regression model and inspecting results. 
+#AB40 summary stats
+ab40.lm<-lm(ab40plasma~AB40Loads, data = PL)
+
+summary(ab40.lm)
+
+#AB42 summary stats
+ab42.lm<-lm(ab42plasma~AB42Loads, data = PL)
+
+summary(ab42.lm)
+
+#AB37 summary stats
+ab37.lm<-lm(ab37plasma~AB37Loads, data = PL)
+
+summary(ab37.lm)
+
+#BT2Tau summary stats
+nt1.lm<-lm(nt1plasma~BT2Loads, data = PL)
+
+summary(nt1.lm)
+
+#BT2TauRpt summary stats
+nt1rpt.lm<-lm(nt1plasma~BT2LoadsRpt, data = PL)
+
+summary(nt1rpt.lm)
+
+#AT8Tau summary stats
+at8tau.lm<-lm(nt1plasma~AT8Loads, data = PL)
+
+summary(at8tau.lm)
+
+#AT8TauRpt summary stats
+at8rpt.lm<-lm(nt1plasma~AT8LoadsRpt, data = PL)
+
+summary(at8rpt.lm)
+
+#pS416 summary stats
+ps416.lm<-lm(nt1plasma~pS416Loads, data = PL)
+
+summary(ps416.lm)
+
+#pT217 summary stats
+pt217.lm<-lm(nt1plasma~pT217Loads, data = PL)
+
+summary(pt217.lm)
+
+
+#The next lines of code will compare correlations between batches and a coefficient of variation for interbatch analysis of assays. 
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+pct <- ggscatter(PL, x = "nt1plasma", y = "pT217Loads",
+                 add = "reg.line",  # Add regression line
+                 add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                 conf.int = TRUE # Add confidence interval
+) + labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of pT217")
+
+#Add a Spearman Rank for pT217Loads
+pct + stat_cor(method = "spearman", label.x = 1, label.y = 1) +
+  scale_y_continuous(trans='log2')
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+pct <- ggscatter(PL, x = "nt1plasma", y = "pS416Loads",
+                 add = "reg.line",  # Add regression line
+                 add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                 conf.int = TRUE # Add confidence interval
+) + + labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of pS416")
+
+#Add a Spearman Rank for pS416Loads
+pct + stat_cor(method = "spearman", label.x = 1, label.y = 4) +
+  scale_y_continuous(trans='log2')
+
+# Scatter plot with correlation coefficient for BT2 Loads
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+bt2batch <- ggscatter(PL, x = "BT2Loads", y = "BT2LoadsRpt",
+                      add = "reg.line",  # Add regression line
+                      add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                      conf.int = TRUE # Add confidence interval
+)
+
+#Add a Spearman Rank for BT2 vs BT2rpt
+bt2batch + stat_cor(method = "spearman", label.x = 0.005, label.y = 0.01)+
+  scale_y_continuous(trans='log2')
+
+# Scatter plot with correlation coefficient for AT8 Loads
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+at8batch <- ggscatter(PL, x = "AT8Loads", y = "AT8LoadsRpt",
+                      add = "reg.line",  # Add regression line
+                      add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                      conf.int = TRUE # Add confidence interval
+)
+
+#Add a Spearman Rank for AT8 vs AT8rpt
+at8batch + stat_cor(method = "spearman", label.x = 0.1, label.y = 0.5)+
+  scale_y_continuous(trans='log2')
+
+
+#The next lines of code are dedicated to replotting the loads before comparing to plasma analytes using Spearman's Rank Correlation. 
+#Create new dataframe to plot the model
+
+plotting.data<-expand.grid(
+  AB40Loads = seq(min(PL$AB40Loads), max(PL$AB40Loads)),
+  AB42Loads=c(min(PL$AB42Loads), mean(PL$AB42Loads), max(PL$AB42Loads)),
+  AB37Loads=c(min(PL$AB37Loads), mean(PL$AB37Loads), max(PL$AB37Loads)),
+  BT2Loads=c(min(PL$BT2Loads), mean(PL$BT2Loads), max(PL$BT2Loads)),
+  age=c(min(PL$age), mean(PL$age), max(PL$age)))
+
+#Predict the values of NT1 based on new model
+plotting.data$predicted.y <- predict.lm(nt1.lm, newdata=plotting.data)
+
+#Round the values to two decimals
+plotting.data$AB40Loads <- round(plotting.data$AB40Loads, digits = 3)
+plotting.data$AB42Loads <- round(plotting.data$AB42Loads, digits = 3)
+plotting.data$AB37Loads <- round(plotting.data$AB37Loads, digits = 3)
+plotting.data$BT2Loads <- round(plotting.data$BT2Loads, digits = 3)
+
+#Change age variable into a factor
+plotting.data$age <- as.factor(plotting.data$age)
+
+#Plot the graph again!
+sp <- ggplot(PL, aes(age, nt1plasma)) + geom_point()+theme_classic()+ 
+  geom_point(size = 4, shape = 21)
+
+# Fit regression line
+require(stats)
+reg<-lm(nt1plasma ~ age, data = PL)
+reg
+
+
+#geom_abline : Add regression lines
+coeff=coefficients(reg)
+# Equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1))
+# Plot
+sp + geom_abline(intercept = 7, slope = -0.03)+
+  ggtitle(eq)
+# Change line type, color and size
+sp + geom_abline(intercept = 7, slope = -0.03, color="black", 
+                 linetype="dashed", size=1.5)+
+  ggtitle(eq)
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+pct <- ggscatter(PL, x = "nt1plasma", y = "BT2Loads",
+                 add = "reg.line",  # Add regression line
+                 add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                 conf.int = TRUE # Add confidence interval
+)+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of BT2 Tau")
+
+#Add a Spearman Rank for NT1 vs BT2
+pct + stat_cor(method = "spearman", label.x = 1, label.y = 1)+
+  scale_y_continuous(trans='log2')
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+pct2 <- ggscatter(PL, x = "nt1plasma", y = "BT2LoadsRpt",
+                  add = "reg.line",  # Add regression line
+                  add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                  conf.int = TRUE # Add confidence interval
+)+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of BT2 Tau Repeat")
+
+#Add a Spearman Rank for NT1 vs BT2rpt
+pct2 + stat_cor(method = "spearman", label.x = 1, label.y = 1)+
+  scale_y_continuous(trans='log2')
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+at8 <- ggscatter(PL, x = "nt1plasma", y = "AT8Loads",
+                 add = "reg.line",  # Add regression line
+                 add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                 conf.int = TRUE # Add confidence interval
+)+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of AT8 Tau")
+
+#Add a Spearman Rank for NT1 vs AT8
+at8 + stat_cor(method = "spearman", label.x = 1, label.y = 2)+
+  scale_y_continuous(trans='log2')
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+at82 <- ggscatter(PL, x = "nt1plasma", y = "AT8LoadsRpt",
+                  add = "reg.line",  # Add regression line
+                  add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                  conf.int = TRUE # Add confidence interval
+)+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of AT8 Tau Repeat")
+
+#Add a Spearman Rank for NT1 vs AT8rpt
+at82 + stat_cor(method = "spearman", label.x = 1, label.y = 2)+
+  scale_y_continuous(trans='log2')
+
+
+#Plot the graph for ab40 plasma
+sp <- ggplot(PL, aes(age, ab40plasma)) + geom_point()+theme_classic()+ 
+  geom_point(size = 4, shape = 21)
+
+#Create a regression for AB40
+# Fit regression line
+require(stats)
+reg<-lm(ab40plasma ~ age, data = PL)
+reg
+
+#geom_abline : Add regression lines for AB40
+coeff=coefficients(reg)
+# Equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1))
+# Plot
+sp + geom_abline(intercept = 110.368, slope = -0.282)+
+  ggtitle(eq)
+# Change line type, color and size
+sp + geom_abline(intercept = 110.368, slope = -0.282, color="black", 
+                 linetype="dashed", size=1.5)+
+  ggtitle(eq)
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+ab40sr <- ggscatter(PL, x = "ab40plasma", y = "AB40Loads",
+                    add = "reg.line",  # Add regression line
+                    add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                    conf.int = TRUE # Add confidence interval
+)+ labs(x = "Beta Amyloid 1-40 Plasma (pg/mL)", y = "% Loads of Beta Amyloid X-40")
+
+#Add a Spearman Rank
+ab40sr + stat_cor(method = "spearman", label.x = 10, label.y = 1)+
+  scale_x_continuous(trans='log2')+
+  scale_y_continuous(trans='log2')
+
+#Plot the graph again for AB42!
+sp <- ggplot(PL, aes(age, ab42plasma)) + geom_point()+theme_classic()+ 
+  geom_point(size = 4, shape = 21)
+
+#Create a regression for AB42
+# Fit regression line
+require(stats)
+reg<-lm(ab42plasma ~ age, data = PL)
+reg
+
+#geom_abline : Add regression lines for AB42
+coeff=coefficients(reg)
+# Equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1))
+# Plot
+sp + geom_abline(intercept = -1127, slope = 102.2)+
+  ggtitle(eq)
+# Change line type, color and size
+sp + geom_abline(intercept = -1127, slope = 102.2, color="black", 
+                 linetype="dashed", size=1.5)+
+  ggtitle(eq)
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+ab42sr <- ggscatter(PL, x = "ab42plasma", y = "AB42Loads",
+                    add = "reg.line",  # Add regression line
+                    add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                    conf.int = TRUE # Add confidence interval
+)+ labs(x = "Beta Amyloid 1-42 Plasma (pg/mL)", y = "% Loads of Beta Amyloid X-42")
+
+#Add a Spearman Rank
+ab42sr + stat_cor(method = "spearman", label.x = 80, label.y = 1)+
+  scale_y_continuous(trans='log2')
+
+#Plot the graph again for AB37!
+sp <- ggplot(PL, aes(age, ab37plasma)) + geom_point()+theme_classic()+ 
+  geom_point(size = 4, shape = 21)
+
+#Create a regression for AB37
+# Fit regression line
+require(stats)
+reg<-lm(ab37plasma ~ age, data = PL)
+reg
+
+#geom_abline : Add regression lines for AB37
+coeff=coefficients(reg)
+# Equation of the line : 
+eq = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1))
+# Plot
+sp + geom_abline(intercept = -176.751, slope = 6)+
+  ggtitle(eq)
+# Change line type, color and size
+sp + geom_abline(intercept = -176.751, slope = 6, color="black", 
+                 linetype="dashed", size=1.5)+
+  ggtitle(eq)
+
+
+# Scatter plot with correlation coefficient
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+ab37sr <- ggscatter(PL, x = "ab37plasma", y = "AB37Loads",
+                    add = "reg.line",  # Add regression line
+                    add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                    conf.int = TRUE # Add confidence interval
+)+ labs(x = "Beta Amyloid 1-37 Plasma (pg/mL)", y = "% Loads of Beta Amyloid 1-37")
+
+#Add a Spearman Rank
+ab37sr + stat_cor(method = "spearman", label.x = 8, label.y = 1)+
+  scale_y_continuous(trans='log2')+
+  scale_x_continuous(trans='log2')
+
+#Plot all the spearman in one plot
+plot_grid(pct, ab40sr, ab42sr, ab37sr, labels=c("A", "B", "C", "D"), ncol = 4, nrow = 1)
+
+#Run a ratio between AB37 and AB42 loads
+abratio <- ggplot(PL, aes(AB42Loads,AB37Loads))+geom_point(size=2.5)+labs(x = 'AB42 GM Load', y = 'AB37 GM Load', title = 'AB 37:42 ratio Load')+geom_smooth(method = "lm",se = FALSE)
+
+#Run a sr of this
+abratio <- ggscatter(PL, x = "AB42Loads", y = "AB37Loads",
+                     add = "reg.line",  # Add regression line
+                     add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                     conf.int = TRUE # Add confidence interval
+)
+
+#Add a Spearman Rank
+abratio + stat_cor(method = "spearman", label.x = 1, label.y = 1)
+
+#Run a ratio between ab37 plasma and ab42 plasma
+ab2ratio <- ggplot(PL, aes(ab42plasma,ab37plasma))+geom_point(size=2.5)+labs(x = 'AB42 plasma', y = 'AB37 plasma', title = 'AB 37/42 plasma ratio')+geom_smooth(method = "lm",se = FALSE)
+
+#Run a sr of this
+ab2ratio <- ggscatter(PL, x = "ab42 plasma", y = "ab37plasma",
+                      add = "reg.line",  # Add regression line
+                      add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                      conf.int = TRUE # Add confidence interval
+)
+
+#Add a Spearman Rank
+ab2ratio + stat_cor(method = "spearman", label.x = 60, label.y = 1)+
+  scale_y_continuous(trans='log2')+
+
+#Scatterplot of 37/42 ratio of plasma vs loads
+pload <- ggplot(PL, aes(AB37to42plasma,AB37to42Loads))+geom_point(size=2.5)+labs(x = 'AB37/42 Loads ratio', y = 'AB37/42 Plasma ratio', title = 'AB 37/42 plasma vs load ratio')+geom_smooth(method = "lm",se = FALSE)
+
+
+#Add a Spearman rank of 37/42 ratio of plasma vs loads
+pload <- ggscatter(PL, x = "37to42Plasma", y = "37to42Loads",
+                   add = "reg.line",  # Add regression line
+                   add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                   conf.int = TRUE # Add confidence interval
+)
+
+#Add a Spearman Rank for 37/42 ratio of plasma vs loads
+pload  + stat_cor(method = "spearman", label.x = 1, label.y = 1)+
+  scale_x_continuous(trans='log2')
+
+
+#Scatterplot of 37/40 ratio of plasma vs loads
+p2load <- ggplot(PL, aes(AB37to40plasma,AB37to40Loads))+geom_point(size=2.5)+labs(x = 'AB37/40 Loads ratio', y = 'AB37/40 Plasma ratio', title = 'AB 37/40 plasma vs load ratio')+geom_smooth(method = "lm",se = FALSE)
+
+
+#Add a Spearman rank of 37/40 ratio of plasma vs loads
+p2load <- ggscatter(PL, x = "37to40Plasma", y = "37to40Loads",
+                    add = "reg.line",  # Add regression line
+                    add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                    conf.int = TRUE # Add confidence interval
+)+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of Beta Amyloid X-40")
+
+#Add a Spearman Rank for 37/40 ratio of plasma vs loads
+p2load  + stat_cor(method = "spearman", label.x = 0.03, label.y = 1.5)
