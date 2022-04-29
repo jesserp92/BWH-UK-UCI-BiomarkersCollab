@@ -1,0 +1,20 @@
+#Load the following libraries to run in R
+library(dplyr)
+library(ggplot2)
+library(lcsm) #needed for generating spaghetti plots
+library(stringr)#Simple, Consistent Wrappers for Common String Operations
+library(tidyverse)
+library(tidyr)
+library(tsibble)#special tidy time series data frame. 
+library(brolgar)  #an R package to BRowse Over Longitudinal Data Graphically and Analytically in R (brolgar)
+# install.packages("remotes")
+#remotes::install_github("njtierney/brolgar")
+
+data <- read.csv("spaghetti.csv", header = TRUE)  #header = true denotes that the first row in the .csv file is a header or used to mark the group of each column, rather than data to be read when constructing the dataframe. 
+print(data)
+library(reshape2)
+spag<- ggplot(data=data, aes(x=time, y = correction, group = id, colour = id)) + labs(x = "Plasma Draw (Timepoint in years)", y = "Plasma NT1 (pg/mL)") + geom_line()
+spag + geom_line() + stat_smooth(aes(group = 1)) + stat_summary(aes(group = 1),
+                                                                geom = "point", fun.y = mean, shape = 17, size = 3)
+spag + stat_smooth(aes(group = 1), method = "lm", se = TRUE) + 
+  stat_summary(aes(x = 8, yintercept = ..y.., group = 1), fun = "median", color = "black", geom = "hline")
