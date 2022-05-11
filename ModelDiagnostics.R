@@ -1,0 +1,1270 @@
+#Load the following libraries to run in R
+
+# set options
+options(stringsAsFactors = F)         # no automatic data transformation
+options("scipen" = 100, "digits" = 12) # suppress math annotation
+# load packages
+library(dplyr) #used for cleaning dataframes and data manipulation 
+library(tibble) #used for creating a base data frame and also displays data along with data types. 
+library(tidyverse) #used in data sciences for grammar, philosophy, and data structure. Tidies data.
+library(ggplot2) #dedicated to data visualization
+library(ggpubr) #dedicated to data visualization usually used in biological sciences research
+library(car) #develop qqplots
+library(ggfortify) #loading packages for autoplot
+library(corrplot) #used to generate correlation
+library(Hmisc) #used to generate R base correlation and correlation matrices
+library(PerformanceAnalytics) #provides performance metrics and analysis for normally and non-normally distributed data. Can also use on correlation matrices
+
+#Read the file in the following format: "Titleofdocument.csv". From here on, the data will be abbreviated to "PL". 
+PL <- read.csv("PostmortemLoadsvsPlasma.csv", header = TRUE)
+print(PL)
+PL <- tibble::as_tibble(PL)
+library(reshape2)
+
+#Begin regression analysis by generating a regression model and inspecting results. 
+#AB40 summary stats
+ab40.lm<-lm(ab40plasma~AB40Loads, data = PL)
+
+summary(ab40.lm)
+
+#AB42 summary stats
+ab42.lm<-lm(ab42plasma~AB42Loads, data = PL)
+
+summary(ab42.lm)
+
+#AB37 summary stats
+ab37.lm<-lm(ab37plasma~AB37Loads, data = PL)
+
+summary(ab37.lm)
+
+#BT2Tau summary stats
+nt1.lm<-lm(nt1plasma~BT2Loads, data = PL)
+
+summary(nt1.lm)
+
+#BT2TauRpt summary stats
+nt1rpt.lm<-lm(nt1plasma~BT2LoadsRpt, data = PL)
+
+summary(nt1rpt.lm)
+
+#AT8Tau summary stats
+at8tau.lm<-lm(nt1plasma~AT8Loads, data = PL)
+
+summary(at8tau.lm)
+
+#AT8TauRpt summary stats
+at8rpt.lm<-lm(nt1plasma~AT8LoadsRpt, data = PL)
+
+summary(at8rpt.lm)
+
+#pS416 summary stats
+ps416.lm<-lm(nt1plasma~pS416Loads, data = PL)
+
+summary(ps416.lm)
+
+#pT217 summary stats
+pt217.lm<-lm(nt1plasma~pT217Loads, data = PL)
+
+summary(pt217.lm)
+
+#Check if the model for NT1 tau is a good fit based on residuals vs leverage and vs fitted
+par(mfrow=c(2,2))
+plot(nt1.lm)
+par(mfrow=c(1,1))
+
+#Check if the model for ab42 is a good fit based on residuals vs leverage and vs fitted
+par(mfrow=c(2,2))
+plot(ab42.lm)
+par(mfrow=c(1,1))
+
+#Check if the model for ab40 is a good fit based on residuals vs leverage and vs fitted
+par(mfrow=c(2,2))
+plot(ab40.lm)
+par(mfrow=c(1,1))
+
+#Check if the model for ab37 is a good fit based on residuals vs leverage and vs fitted
+par(mfrow=c(2,2))
+plot(ab37.lm)
+par(mfrow=c(1,1))
+
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for NT1 tau
+df2 <- data.frame(id = 1:length(resid(nt1.lm)),
+                  residuals = resid(nt1.lm),
+                  standard = rstandard(nt1.lm),
+                  studend = rstudent(nt1.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for nt1
+nt1tau.lm <- lm(nt1plasma~BT2Loads, data=PL)
+
+# generate plots for nt1
+autoplot(nt1tau.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(nt1tau.lm)-length(nt1tau.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(nt1tau.lm, main="QQ Plot") # create qq-plot
+
+plot(nt1tau.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+
+# Influence Plot
+influencePlot(nt1tau.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for nt1
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(nt1tau.lm),
+                standardized.residuals = rstandard(nt1tau.lm),
+                studentized.residuals = rstudent(nt1tau.lm),
+                cooks.distance = cooks.distance(nt1tau.lm),
+                dffit = dffits(nt1tau.lm),
+                leverage = hatvalues(nt1tau.lm),
+                covariance.ratios = covratio(nt1tau.lm),
+                fitted = nt1tau.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(nt1tau.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(nt1tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(nt1tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(nt1tau.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(nt1tau.lm$leverage >= (3*mean(nt1tau.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(nt1tau.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(nt1tau.lm)
+
+# check beta-error likelihood
+expR(nt1tau.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for antemortem plasma and antibody loads postmortem.
+# generate data for Bamy42
+df2 <- data.frame(id = 1:length(resid(ab42.lm)),
+                  residuals = resid(ab42.lm),
+                  standard = rstandard(ab42.lm),
+                  studend = rstudent(ab42.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for ab42
+bamy42.lm <- lm(ab42plasma~AB42Loads, data=PL)
+
+# generate plots for ab42
+autoplot(bamy42.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(bamy42.lm)-length(bamy42.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(bamy42.lm, main="QQ Plot") # create qq-plot
+
+plot(bamy42.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(bamy42.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for ab42
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(bamy42.lm),
+                standardized.residuals = rstandard(bamy42.lm),
+                studentized.residuals = rstudent(bamy42.lm),
+                cooks.distance = cooks.distance(bamy42.lm),
+                dffit = dffits(bamy42.lm),
+                leverage = hatvalues(bamy42.lm),
+                covariance.ratios = covratio(bamy42.lm),
+                fitted = bamy42.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(bamy42.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(bamy42.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(bamy42.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(bamy42.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(bamy42.lm$leverage >= (3*mean(bamy42.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(bamy42.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(bamy42.lm)
+
+# check beta-error likelihood
+expR(bamy42.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for antemortem plasma and antibody loads postmortem.
+# generate data for Bamy 40
+df2 <- data.frame(id = 1:length(resid(ab40.lm)),
+                  residuals = resid(ab40.lm),
+                  standard = rstandard(ab40.lm),
+                  studend = rstudent(ab40.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for ab40
+bamy40.lm <- lm(ab40plasma~AB40Loads, data=PL)
+
+# generate plots for ab40
+autoplot(bamy40.lm ) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(bamy40.lm )-length(bamy40.lm $coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(bamy40.lm , main="QQ Plot") # create qq-plot
+
+plot(bamy40.lm , which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(bamy40.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for ab40
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(bamy40.lm ),
+                standardized.residuals = rstandard(bamy40.lm ),
+                studentized.residuals = rstudent(bamy40.lm ),
+                cooks.distance = cooks.distance(bamy40.lm ),
+                dffit = dffits(bamy40.lm ),
+                leverage = hatvalues(bamy40.lm ),
+                covariance.ratios = covratio(bamy40.lm ),
+                fitted = bamy40.lm $fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(bamy40.lm $standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(bamy40.lm $standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(bamy40.lm $standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(bamy40.lm $cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(bamy40.lm $leverage >= (3*mean(bamy40.lm $leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(bamy40.lm )
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(bamy40.lm )
+
+# check beta-error likelihood
+expR(bamy40.lm )
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for antemortem plasma and antibody loads postmortem.
+# generate data for ab37
+df2 <- data.frame(id = 1:length(resid(ab37.lm)),
+                  residuals = resid(ab37.lm),
+                  standard = rstandard(ab37.lm),
+                  studend = rstudent(ab37.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for ab37
+bamy37.lm <- lm(ab37plasma~AB37Loads, data=PL)
+
+# generate plots for ab37
+autoplot(bamy37.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(bamy37.lm)-length(bamy37.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(bamy37.lm, main="QQ Plot") # create qq-plot
+
+plot(bamy37.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(bamy37.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+# add model diagnostics to the data for ab37
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(bamy37.lm),
+                standardized.residuals = rstandard(bamy37.lm),
+                studentized.residuals = rstudent(bamy37.lm),
+                cooks.distance = cooks.distance(bamy37.lm),
+                dffit = dffits(bamy37.lm),
+                leverage = hatvalues(bamy37.lm),
+                covariance.ratios = covratio(bamy37.lm),
+                fitted = bamy37.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(bamy37.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(bamy37.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(bamy37.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(bamy37.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(bamy37.lm$leverage >= (3*mean(bamy37.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(bamy37.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(bamy37.lm)
+
+# check beta-error likelihood
+expR(bamy37.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for NT1 tau rpt
+df2 <- data.frame(id = 1:length(resid(nt1rpt.lm)),
+                  residuals = resid(nt1rpt.lm),
+                  standard = rstandard(nt1rpt.lm),
+                  studend = rstudent(nt1rpt.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for nt1
+nt1taurpt.lm <- lm(nt1plasma~BT2LoadsRpt, data=PL)
+
+# generate plots for nt1rpt
+autoplot(nt1taurpt.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(nt1taurpt.lm)-length(nt1taurpt.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(nt1taurpt.lm, main="QQ Plot") # create qq-plot
+
+plot(nt1taurpt.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(nt1taurpt.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for nt1
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(nt1taurpt.lm),
+                standardized.residuals = rstandard(nt1taurpt.lm),
+                studentized.residuals = rstudent(nt1taurpt.lm),
+                cooks.distance = cooks.distance(nt1taurpt.lm),
+                dffit = dffits(nt1taurpt.lm),
+                leverage = hatvalues(nt1taurpt.lm),
+                covariance.ratios = covratio(nt1taurpt.lm),
+                fitted = nt1taurpt.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(nt1taurpt.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(nt1taurpt.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(nt1taurpt.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(nt1taurpt.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(nt1taurpt.lm$leverage >= (3*mean(nt1taurpt.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(nt1taurpt.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(nt1taurpt.lm)
+
+# check beta-error likelihood
+expR(nt1taurpt.lm)
+
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for AT8 tau
+df2 <- data.frame(id = 1:length(resid(at8tau.lm)),
+                  residuals = resid(at8tau.lm),
+                  standard = rstandard(at8tau.lm),
+                  studend = rstudent(at8tau.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for at8
+at8tau.lm <- lm(nt1plasma~AT8Loads, data=PL)
+
+# generate plots for at8
+autoplot(at8tau.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(at8tau.lm)-length(at8tau.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(at8tau.lm, main="QQ Plot") # create qq-plot
+
+plot(at8tau.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(at8tau.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for at8
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(at8tau.lm),
+                standardized.residuals = rstandard(at8tau.lm),
+                studentized.residuals = rstudent(at8tau.lm),
+                cooks.distance = cooks.distance(at8tau.lm),
+                dffit = dffits(at8tau.lm),
+                leverage = hatvalues(at8tau.lm),
+                covariance.ratios = covratio(at8tau.lm),
+                fitted = at8tau.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(at8tau.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(at8tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(at8tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(at8tau.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(at8tau.lm$leverage >= (3*mean(at8tau.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(at8tau.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(at8tau.lm)
+
+# check beta-error likelihood
+expR(at8tau.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for AT8rpt tau
+df2 <- data.frame(id = 1:length(resid(at8rpt.lm)),
+                  residuals = resid(at8rpt.lm),
+                  standard = rstandard(at8rpt.lm),
+                  studend = rstudent(at8rpt.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for at8 rpt
+at8taurpt.lm <- lm(nt1plasma~AT8LoadsRpt, data=PL)
+
+# generate plots for at8 rpt
+autoplot(at8taurpt.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(at8taurpt.lm)-length(at8taurpt.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(at8taurpt.lm, main="QQ Plot") # create qq-plot
+
+plot(at8taurpt.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(at8taurpt.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for at8 rpt
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(at8taurpt.lm),
+                standardized.residuals = rstandard(at8taurpt.lm),
+                studentized.residuals = rstudent(at8taurpt.lm),
+                cooks.distance = cooks.distance(at8taurpt.lm),
+                dffit = dffits(at8taurpt.lm),
+                leverage = hatvalues(at8taurpt.lm),
+                covariance.ratios = covratio(at8taurpt.lm),
+                fitted = at8taurpt.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(at8taurpt.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(at8taurpt.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(at8taurpt.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(at8taurpt.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(at8taurpt.lm$leverage >= (3*mean(at8taurpt.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(at8taurpt.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(at8taurpt.lm)
+
+# check beta-error likelihood
+expR(at8taurpt.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for pS416 tau
+df2 <- data.frame(id = 1:length(resid(ps416.lm)),
+                  residuals = resid(ps416.lm),
+                  standard = rstandard(ps416.lm),
+                  studend = rstudent(ps416.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for ps416 
+pS416tau.lm <- lm(nt1plasma~pS416Loads, data=PL)
+
+# generate plots for ps416 
+autoplot(pS416tau.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(pS416tau.lm)-length(pS416tau.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(pS416tau.lm, main="QQ Plot") # create qq-plot
+
+plot(pS416tau.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+
+# add model diagnostics to the data for ps416 
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(pS416tau.lm),
+                standardized.residuals = rstandard(pS416tau.lm),
+                studentized.residuals = rstudent(pS416tau.lm),
+                cooks.distance = cooks.distance(pS416tau.lm),
+                dffit = dffits(pS416tau.lm),
+                leverage = hatvalues(pS416tau.lm),
+                covariance.ratios = covratio(pS416tau.lm),
+                fitted = pS416tau.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(pS416tau.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(pS416tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(pS416tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(pS416tau.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(pS416tau.lm$leverage >= (3*mean(pS416tau.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(pS416tau.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(pS416tau.lm)
+
+# check beta-error likelihood
+expR(pS416tau.lm)
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+#The following lines of code will focus on diagnostic modeling of the regression analysis and see if there are any influential points that may pull the data for NT1 tau plasma and BT2 tau for postmortem.
+# generate data for pT217 tau
+df2 <- data.frame(id = 1:length(resid(pt217.lm)),
+                  residuals = resid(pt217.lm),
+                  standard = rstandard(pt217.lm),
+                  studend = rstudent(pt217.lm))
+# generate plots
+p1 <- ggplot(df2, aes(x = id, y = residuals)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Residuals", x = "Index")
+p2 <- ggplot(df2, aes(x = id, y = standard)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Standardized Residuals", x = "Index")
+p3 <- ggplot(df2, aes(x = id, y = studend)) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_point() +
+  labs(y = "Studentized Residuals", x = "Index")
+# display plots
+ggpubr::ggarrange(p1, p2, p3, ncol = 3, nrow = 1)
+
+#Generate graph for leverages for pT217 
+pT217tau.lm <- lm(nt1plasma~pT217Loads, data=PL)
+
+# generate plots for pT217 
+autoplot(pT217tau.lm) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+# determine a cutoff for data points that have
+# D-values higher than 4/(n-k-1)
+cutoff <- 4/((nrow(pT217tau.lm)-length(pT217tau.lm$coefficients)-2))
+# start plotting
+par(mfrow = c(1, 2))           # display plots in 1 row/2 columns
+qqPlot(pT217tau.lm, main="QQ Plot") # create qq-plot
+
+plot(pT217tau.lm, which=4, cook.levels = cutoff); par(mfrow = c(1, 1))
+# Influence Plot
+influencePlot(pT217tau.lm, id.method="identify", main="Influence Plot", sub="Circle size is proportial to Cook's Distance" )
+
+# add model diagnostics to the data for pT217 
+PL <- PL %>%
+  dplyr::mutate(residuals = resid(pT217tau.lm),
+                standardized.residuals = rstandard(pT217tau.lm),
+                studentized.residuals = rstudent(pT217tau.lm),
+                cooks.distance = cooks.distance(pT217tau.lm),
+                dffit = dffits(pT217tau.lm),
+                leverage = hatvalues(pT217tau.lm),
+                covariance.ratios = covratio(pT217tau.lm),
+                fitted = pT217tau.lm$fitted.values)
+# plot 5
+p5 <- ggplot(PL,
+             aes(studentized.residuals)) +
+  theme(legend.position = "none")+
+  geom_histogram(aes(y=..density..),
+                 binwidth = .2,
+                 colour="black",
+                 fill="gray90") +
+  labs(x = "Studentized Residual", y = "Density") +
+  stat_function(fun = dnorm,
+                args = list(mean = mean(PL$studentized.residuals, na.rm = TRUE),
+                            sd = sd(PL$studentized.residuals, na.rm = TRUE)),
+                colour = "red", size = 1) +
+  theme_bw(base_size = 8)
+# plot 6
+p6 <- ggplot(PL, aes(fitted, studentized.residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", colour = "Red")+
+  theme_bw(base_size = 8)+
+  labs(x = "Fitted Values",
+       y = "Studentized Residual")
+# plot 7
+p7 <- qplot(sample = PL$studentized.residuals, stat="qq") +
+  theme_bw(base_size = 8) +
+  labs(x = "Theoretical Values",
+       y = "Observed Values")
+vip::grid.arrange(p5, p6, p7, nrow = 1)
+
+#Optional try checking if this is necessary
+
+# 1: optimal = 0
+# (listed data points should be removed)
+which(pT217tau.lm$standardized.residuals > 3.29)
+
+# 2: optimal = 1
+# (listed data points should be removed)
+stdres_258 <- as.vector(sapply(pT217tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 2.58, 1, 0) } ))
+(sum(stdres_258) / length(stdres_258)) * 100
+
+# 3: optimal = 5
+# (listed data points should be removed)
+stdres_196 <- as.vector(sapply(pT217tau.lm$standardized.residuals, function(x) {
+  ifelse(sqrt((x^2)) > 1.96, 1, 0) } ))
+(sum(stdres_196) / length(stdres_196)) * 100
+
+# 4: optimal = 0
+# (listed data points should be removed)
+which(pT217tau.lm$cooks.distance > 1)
+
+# 5: optimal = 0
+# (data points should be removed if cooks distance is close to 1)
+which(pT217tau.lm$leverage >= (3*mean(pT217tau.lm$leverage)))
+
+# 6: checking autocorrelation:
+# Durbin-Watson test (optimal: high p-value)
+dwt(pT217tau.lm)
+
+# load functions
+source("https://slcladal.github.io/rscripts/SampleSizeMLR.r")
+source("https://slcladal.github.io/rscripts/ExpR.r")
+# check if sample size is sufficient
+smplesz(pT217tau.lm)
+
+# check beta-error likelihood
+expR(pT217tau.lm)
+
+# tabulate model results
+tab_model(nt1tau.lm, bamy42.lm, bamy40.lm, bamy37.lm, nt1taurpt.lm, at8tau.lm, at8taurpt.lm, pS416tau.lm, pT217tau.lm)
+
+#Regression analysis
+PLs <- lm(BT2Loads~nt1plasma, data=PL)
+
+plot(PL$BT2Loads, rstandard(PLs), ylab='Standardized Residuals', xlab='y') 
+abline(h=0)
+
+#fit robust regression model
+robust <- rlm(BT2Loads~nt1plasma, data=PL)
+
+#find residual standard error of PLs model. the lower the value for RSE, the more closely a model is able to fit the data.
+summary(PLs)$sigma
+
+#find residual standard errof of PLs model
+summary(robust)$sigma
+
+#robust regression analysis. data = dataset import. For example, when assigning PL <- read.csv file. data = PL 
+
+library(robustbase) 
+res <- lmrob(BT2Loads ~ nt1plasma,
+             data=PL)
+summary(res)
+cbind(coef(res),confint(res, level = 0.95))
+
+#This code tells R to run a linear regression using the lm function. The left side of the “~” symbol specifies the dependent variable; the right side specifies the independent variables. 
+#The results from this regression analysis is then printed out using the summary function. Lastly, the cbind, coef and confint functions are used to print the model coefficients with the corresponding 95% confidence intervals.
+
+#"Chan, G. and StatsNotebook Team (2020). StatsNotebook. (Version 0.1.0) [Computer Software]. Retrieved from https://www.statsnotebook.io"
+#"R Core Team (2020). The R Project for Statistical Computing. [Computer software]. Retrieved from https://r-project.org"
+
+res <- lm(BT2Loads ~ nt1plasma,
+          data=PL)
+summary(res)
+cbind(coef(res),confint(res, level = 0.95))
+
+library(car) #Linear Mixed Model Diagnostic. To check three assumptions (i.e. Linearity, homoscedasticity and normality) and perform model diagnostic, we will need to use several functions from the car library.
+
+res.std <- rstandard(res)
+plot(res.std, ylab="Standardized Residuals")
+
+#The following lines of codes allow us to examine if there are outliers and if there are any observations that might have a large influence on the model estimates.
+"Outlier Test. Observations with a Bonferroni p < .01 might be considered as outliers and might need further investigation."
+outlierTest(res)
+infIndexPlot(res)
+
+"Residual plots, curvature tests and normality plot"
+residualPlots(res)
+ggplot(as.data.frame(res.std), aes(sample = res.std)) +
+  geom_qq() +
+  geom_qq_line()
+
+"Variance inflation factor (VIF >=5 indicates high level of multicollinearity)"
+vif(res)
+
+
+#redone comparing all groups
+res <- lm(nt1plasma ~ BT2Loads + AB40Loads + AB42Loads +AB37Loads
+          data=PL)
+summary(res)
+cbind(coef(res),confint(res, level = 0.95))
+
+#Generate a residual plot using the following lines of code. Points randomly scattered around 0. 
+#Approximately 9% of the points will fall between -2 and 2 standardized residuals. Points larger may be outliers.
+res.std <- rstandard(res)
+plot(res.std, ylab="Standardized Residuals")
+
+#The following lines of codes allow us to examine if there are outliers and if there are any observations that might have a large influence on the model estimates.
+"Outlier Test. Observations with a Bonferroni p < .01 might be considered as outliers and might need further investigation."
+outlierTest(res)
+infIndexPlot(res)
+#infIndexPlot. Observations with a Cook’s distance close to 1 indicates a high impact on the model coefficients.
+
+"Residual plots, curvature tests and normality plot"
+residualPlots(res)
+ggplot(as.data.frame(res.std), aes(sample = res.std)) +
+  geom_qq() +
+  geom_qq_line()
+
+"Variance inflation factor (VIF >=5 indicates high level of multicollinearity)"
+vif(res)
+
+#Calculating Interbatch Analysis for the different tau stainings
+
+
+#Calculate mean for the given dataset, na.rm = true indicates removing any cells with missing information.
+mean(PL$BT2Loads, na.rm = TRUE)
+mean(PL$BT2LoadsRpt, na.rm = TRUE)
+mean(PL$AT8Loads, na.rm = TRUE)
+mean(PL$AT8LoadsRpt, na.rm = TRUE)
+
+#Calculate standard deviation for the given dataset, na.rm = true indicates removing any cells with missing information.
+sd(PL$BT2Loads, na.rm = TRUE)
+sd(PL$BT2LoadsRpt, na.rm = TRUE)
+sd(PL$AT8Loads, na.rm = TRUE)
+sd(PL$AT8LoadsRpt, na.rm = TRUE)
+
+#create a summary of the mean, media, and quartiles
+summary(PL$BT2Loads)
+summary(PL$BT2LoadsRpt)
+summary(PL$AT8Loads)
+summary(PL$AT8LoadsRpt)
+
+#Measuring variability in a sample using variance.
+var(PL$BT2Loads, na.rm = TRUE)
+var(PL$BT2LoadsRpt, na.rm = TRUE)
+var(PL$AT8Loads, na.rm = TRUE)
+var(PL$AT8LoadsRpt, na.rm = TRUE)
+
+#Measuring the coeffiecent of variation can be constructed using the previous data.
+100 * sd(PL$BT2Loads, na.rm = TRUE) / mean(PL$BT2Loads, na.rm = TRUE) 
+100 * sd(PL$BT2LoadsRpt, na.rm = TRUE) / mean(PL$BT2LoadsRpt, na.rm = TRUE) 
+100 * sd(PL$AT8Loads, na.rm = TRUE) / mean(PL$AT8Loads, na.rm = TRUE) 
+100 * sd(PL$AT8LoadsRpt, na.rm = TRUE) / mean(PL$AT8LoadsRpt, na.rm = TRUE) 
+
+#Measuring the confidence intervals of the mean can be performed along with a t.test
+t.test(PL$BT2Loads)$conf.int
+t.test(PL$BT2LoadsRpt)$conf.int
+t.test(PL$AT8Loads)$conf.int
+t.test(PL$AT8LoadsRpt)$conf.int
