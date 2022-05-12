@@ -46,8 +46,8 @@ PL.p = PL.rcorr$P
 corrplot(PL.cor)
 
 #Create a correlogram to better visualize the graphical display
-corrplot(PL.cor, type = "upper", order = "hclust", 
-         tl.col = "black", tl.srt = 45)
+q <- corrplot(PL.cor, type = "upper", order = "hclust", 
+              tl.col = "black", tl.srt = 45)
 
 #Combine correlogram with significance test
 
@@ -82,6 +82,11 @@ nt1.lm<-lm(nt1plasma~BT2Loads, data = PL)
 
 summary(nt1.lm)
 
+#BT2Tau summary stats versus NT1 average
+nt2.lm<-lm(avgnt1~BT2Loads, data = PL)
+
+summary(nt2.lm)
+
 #BT2TauRpt summary stats
 nt1rpt.lm<-lm(nt1plasma~BT2LoadsRpt, data = PL)
 
@@ -107,6 +112,34 @@ pt217.lm<-lm(nt1plasma~pT217Loads, data = PL)
 
 summary(pt217.lm)
 
+#generate correlation to intensity and strong pixels
+nsr.lm<-lm(nsr~iavg, data = PL)
+
+summary(nsr.lm)
+
+nsr2.lm<-lm(nsr2~iavg2, data = PL)
+
+summary(nsr2.lm)
+
+n <- ggscatter(PL, x = "iavg", y = "nsr",
+               add = "reg.line",  # Add regression line
+               add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+               conf.int = TRUE # Add confidence interval
+) + labs(x = "Average Intensity of Staining", y = "relative # of strong positive pixels")
+
+#Add a Spearman Rank for intensity to relative strong pixels
+n + stat_cor(method = "spearman", label.x = 100, label.y = 1)
+
+
+n2 <- ggscatter(PL, x = "iavg2", y = "nsr2",
+                add = "reg.line",  # Add regression line
+                add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                conf.int = TRUE # Add confidence interval
+) + labs(x = "Average Intensity of Staining", y = "relative # of strong positive pixels")
+
+#Add a Spearman Rank for intensity to relative strong pixels
+n2 + stat_cor(method = "spearman", label.x = 100, label.y = 1)
+
 
 #The next lines of code will compare correlations between batches and a coefficient of variation for interbatch analysis of assays. 
 # Scatter plot with correlation coefficient
@@ -118,9 +151,9 @@ pct <- ggscatter(PL, x = "nt1plasma", y = "pT217Loads",
 ) + labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of pT217")
 
 #Add a Spearman Rank for pT217Loads
-pct + stat_cor(method = "spearman", label.x = 1, label.y = 1) +
+pt217 <- pct + stat_cor(method = "spearman", label.x = 1, label.y = 1) +
   scale_y_continuous(trans='log2')
-
+pt217
 
 # Scatter plot with correlation coefficient
 #:::::::::::::::::::::::::::::::::::::::::::::::::
@@ -128,11 +161,12 @@ pct <- ggscatter(PL, x = "nt1plasma", y = "pS416Loads",
                  add = "reg.line",  # Add regression line
                  add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
                  conf.int = TRUE # Add confidence interval
-) + + labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of pS416")
+) + labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of pS416")
 
 #Add a Spearman Rank for pS416Loads
-pct + stat_cor(method = "spearman", label.x = 1, label.y = 4) +
+ps <- pct + stat_cor(method = "spearman", label.x = 1, label.y = 4) +
   scale_y_continuous(trans='log2')
+ps
 
 # Scatter plot with correlation coefficient for BT2 Loads
 #:::::::::::::::::::::::::::::::::::::::::::::::::
@@ -213,7 +247,19 @@ pct <- ggscatter(PL, x = "nt1plasma", y = "BT2Loads",
 )+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of BT2 Tau")
 
 #Add a Spearman Rank for NT1 vs BT2
-pct + stat_cor(method = "spearman", label.x = 1, label.y = 1)+
+bt2 <- pct + stat_cor(method = "spearman", label.x = 2, label.y = 1)+
+  scale_y_continuous(trans='log2')
+
+# Scatter plot with correlation coefficient for average of last two plasma analytes
+#:::::::::::::::::::::::::::::::::::::::::::::::::
+pc2 <- ggscatter(PL, x = "avgnt1", y = "BT2Loads",
+                 add = "reg.line",  # Add regression line
+                 add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                 conf.int = TRUE # Add confidence interval
+)+ labs(x = "Average NT1 Plasma (pg/mL)", y = "% Loads of BT2 Tau")
+
+#Add a Spearman Rank for NT1 vs BT2
+bt2 <- pc2 + stat_cor(method = "spearman", label.x = 2, label.y = 1)+
   scale_y_continuous(trans='log2')
 
 # Scatter plot with correlation coefficient
@@ -225,7 +271,7 @@ pct2 <- ggscatter(PL, x = "nt1plasma", y = "BT2LoadsRpt",
 )+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of BT2 Tau Repeat")
 
 #Add a Spearman Rank for NT1 vs BT2rpt
-pct2 + stat_cor(method = "spearman", label.x = 1, label.y = 1)+
+pct2 + stat_cor(method = "spearman", label.x = 2, label.y = 1)+
   scale_y_continuous(trans='log2')
 
 # Scatter plot with correlation coefficient
@@ -237,9 +283,9 @@ at8 <- ggscatter(PL, x = "nt1plasma", y = "AT8Loads",
 )+ labs(x = "NT1 Plasma (pg/mL)", y = "% Loads of AT8 Tau")
 
 #Add a Spearman Rank for NT1 vs AT8
-at8 + stat_cor(method = "spearman", label.x = 1, label.y = 2)+
+p202 <- at8 + stat_cor(method = "spearman", label.x = 2, label.y = 1)+
   scale_y_continuous(trans='log2')
-
+p202
 
 # Scatter plot with correlation coefficient
 #:::::::::::::::::::::::::::::::::::::::::::::::::
@@ -286,9 +332,10 @@ ab40sr <- ggscatter(PL, x = "ab40plasma", y = "AB40Loads",
 )+ labs(x = "Beta Amyloid 1-40 Plasma (pg/mL)", y = "% Loads of Beta Amyloid X-40")
 
 #Add a Spearman Rank
-ab40sr + stat_cor(method = "spearman", label.x = 10, label.y = 1)+
+ab40 <- ab40sr + stat_cor(method = "spearman", label.x = 10, label.y = 1)+
   scale_x_continuous(trans='log2')+
   scale_y_continuous(trans='log2')
+ab40
 
 #Plot the graph again for AB42!
 sp <- ggplot(PL, aes(age, ab42plasma)) + geom_point()+theme_classic()+ 
@@ -322,7 +369,7 @@ ab42sr <- ggscatter(PL, x = "ab42plasma", y = "AB42Loads",
 )+ labs(x = "Beta Amyloid 1-42 Plasma (pg/mL)", y = "% Loads of Beta Amyloid X-42")
 
 #Add a Spearman Rank
-ab42sr + stat_cor(method = "spearman", label.x = 80, label.y = 1)+
+ab42 <- ab42sr + stat_cor(method = "spearman", label.x = 80, label.y = 1)+
   scale_y_continuous(trans='log2')
 
 #Plot the graph again for AB37!
@@ -357,9 +404,10 @@ ab37sr <- ggscatter(PL, x = "ab37plasma", y = "AB37Loads",
 )+ labs(x = "Beta Amyloid 1-37 Plasma (pg/mL)", y = "% Loads of Beta Amyloid 1-37")
 
 #Add a Spearman Rank
-ab37sr + stat_cor(method = "spearman", label.x = 8, label.y = 1)+
+ab37 <- ab37sr + stat_cor(method = "spearman", label.x = 8, label.y = 1)+
   scale_y_continuous(trans='log2')+
   scale_x_continuous(trans='log2')
+ab37
 
 #Plot all the spearman in one plot
 plot_grid(pct, ab40sr, ab42sr, ab37sr, labels=c("A", "B", "C", "D"), ncol = 4, nrow = 1)
@@ -390,9 +438,9 @@ ab2ratio <- ggscatter(PL, x = "ab42 plasma", y = "ab37plasma",
 #Add a Spearman Rank
 ab2ratio + stat_cor(method = "spearman", label.x = 60, label.y = 1)+
   scale_y_continuous(trans='log2')+
-
-#Scatterplot of 37/42 ratio of plasma vs loads
-pload <- ggplot(PL, aes(AB37to42plasma,AB37to42Loads))+geom_point(size=2.5)+labs(x = 'AB37/42 Loads ratio', y = 'AB37/42 Plasma ratio', title = 'AB 37/42 plasma vs load ratio')+geom_smooth(method = "lm",se = FALSE)
+  
+  #Scatterplot of 37/42 ratio of plasma vs loads
+  pload <- ggplot(PL, aes(AB37to42plasma,AB37to42Loads))+geom_point(size=2.5)+labs(x = 'AB37/42 Loads ratio', y = 'AB37/42 Plasma ratio', title = 'AB 37/42 plasma vs load ratio')+geom_smooth(method = "lm",se = FALSE)
 
 
 #Add a Spearman rank of 37/42 ratio of plasma vs loads
@@ -420,3 +468,9 @@ p2load <- ggscatter(PL, x = "37to40Plasma", y = "37to40Loads",
 
 #Add a Spearman Rank for 37/40 ratio of plasma vs loads
 p2load  + stat_cor(method = "spearman", label.x = 0.03, label.y = 1.5)
+
+
+#patchwork
+ps + pt217 + bt2+ p202
+
+ab42 + ab40 + ab37
