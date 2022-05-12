@@ -10,7 +10,7 @@ library(corrplot) #used to generate correlation
 library(Hmisc) #used to generate R base correlation and correlation matrices
 library(PerformanceAnalytics) #provides performance metrics and analysis for normally and non-normally distributed data. Can also use on correlation matrices
 
-#Read the file in the following format: "Titleofdocument.csv". From here on, the data will be abbreviated to "PL". 
+#Read the file in the following format: "Titleofdocument.csv". From here on, the data will be abbreviated to "P". Another title instead of "Tau.csv" is "BAmy.csv"
 P <- read.csv("Tau.csv", header = TRUE)
 print(P)
 P <- tibble::as_tibble(P)
